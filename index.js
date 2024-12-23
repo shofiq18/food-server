@@ -101,6 +101,22 @@ async function run() {
             }
         });
 
+        // GET Route: Fetch My Requests
+        app.get('/my-requests', async (req, res) => {
+            const userEmail = req.query.email; // Get email from query parameters
+
+            try {
+                const myRequests = await myRequestsCollection.find({ userEmail }).toArray();
+                res.status(200).send(myRequests);
+            } catch (error) {
+                console.error("Error fetching my requests:", error);
+                res.status(500).send({ success: false, message: "Failed to fetch my requests" });
+            }
+        });
+
+
+
+
         // POST Route: Add to My Requests
         app.post('/my-requests', async (req, res) => {
             const request = req.body;
