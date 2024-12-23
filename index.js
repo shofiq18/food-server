@@ -3,7 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -46,6 +46,22 @@ async function run() {
                 res.status(500).send({ success: false, message: "Failed to fetch foods" });
            }
           });
+
+        //   get foods data by id apis
+
+        app.get('/available-foods/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = {_id: new ObjectId(id)}
+                const result = await foodCollection.findOne(query);
+                res.send(result);
+
+            } catch (error) {
+                console.error('Error geting id ', error)
+                res.status(500).send({ success: false, message: "Failed to get food id " });
+
+            }
+        } )
 
 
         // POST Route: Add Food
