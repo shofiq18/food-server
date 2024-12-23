@@ -58,6 +58,53 @@ async function run() {
             }
         });
 
+        // GET Route: Fetch Foods Donated by Logged-In User
+        app.get('/my-foods', async (req, res) => {
+            const userEmail = req.query.email; // Get the logged-in user's email from query params
+
+            try {
+                const myFoods = await foodCollection.find({ "donator.email": userEmail }).toArray();
+                res.status(200).send(myFoods);
+            } catch (error) {
+                console.error("Error fetching my foods:", error);
+                res.status(500).send({ success: false, message: "Failed to fetch my foods" });
+            }
+        });
+
+        // DELETE Route: Delete a Food
+        app.delete('/foods/:id', async (req, res) => {
+            const { id } = req.params;
+
+            try {
+                const result = await foodCollection.deleteOne({ _id: new ObjectId(id) });
+                res.status(200).send({ success: true, message: "Food deleted successfully", data: result });
+            } catch (error) {
+                console.error("Error deleting food:", error);
+                res.status(500).send({ success: false, message: "Failed to delete food" });
+            }
+        });
+
+
+        // PATCH Route: Update Food Information
+        app.patch('/foods/:id', async (req, res) => {
+            const { id } = req.params;
+            const updatedData = req.body;
+
+            try {
+                const result = await foodCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: updatedData }
+                );
+                res.send({ success: true, message: "Food updated successfully", data: result });
+            } catch (error) {
+                console.error("Error updating food:", error);
+                res.status(500).send({ success: false, message: "Failed to update food" });
+            }
+        });
+
+
+
+
         // POST Route: Add Food
         app.post('/add-food', async (req, res) => {
             const foodData = req.body;
