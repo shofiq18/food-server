@@ -61,6 +61,26 @@ async function run() {
             }
         });
 
+
+
+        // get featured food apis
+        // GET Route: Fetch Featured Foods
+    app.get('/featured-foods', async (req, res) => {
+        try {
+        const featuredFoods = await foodCollection
+            .find({ status: "Available" })
+            .sort({ quantity: -1 }) // Sort by quantity in descending order
+            .limit(6) // Limit to top 6 items
+            .toArray();
+
+        res.status(200).send(featuredFoods);
+    } catch (error) {
+        console.error("Error fetching featured foods:", error);
+        res.status(500).send({ success: false, message: "Failed to fetch featured foods" });
+    }
+    });
+
+
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
