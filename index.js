@@ -3,15 +3,44 @@
 
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
+const app = express();
 require('dotenv').config();
+const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
-const app = express();
-const port = process.env.PORT || 5000;
+
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5175'], 
+    credentials: true 
+}));
 app.use(express.json());
+app.use(cookieParser());
+
+const verifyToken = (req, res, next) => {
+    const token = req.cookies?.token;
+
+    if(!token) {
+        return res.status(401).send({massage: 'unauthorized access'});
+    }
+
+    // verify the token
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if(err) {
+            return res.status(401).send({massage: 'unauthorized access'});
+        }
+        req.user = decoded;
+        next();
+    })
+
+
+   
+
+}
+
 
 // MongoDB Connection
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5gtpi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -26,13 +55,35 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to MongoDB
-        await client.connect();
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.connect();
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
         // Database and Collections
         const database = client.db("foodDB");
         const foodCollection = database.collection("foods");
         const myRequestsCollection = database.collection("myRequests");
+
+        // auth releted apis
+
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '5h'} );
+            res.cookie('token', token, {
+                httpOnly: true, 
+                secure: false
+            })
+            .send({success: true})
+        })
+
+        app.post('/logout', (req, res) => {
+            res.clearCookie('token', {
+                httpOnly: true, 
+                secure: false
+            } )
+            .send({success: true})
+        })
+
+
 
         // GET Route: Fetch Available Foods
         app.get('/available-foods', async (req, res) => {
@@ -59,8 +110,12 @@ async function run() {
         });
 
         // GET Route: Fetch Foods Donated by Logged-In User
-        app.get('/my-foods', async (req, res) => {
+        app.get('/my-foods', verifyToken, async (req, res) => {
             const userEmail = req.query.email; // Get the logged-in user's email from query params
+            // token email & query email 
+            if(req.user.email !== req.query.email) {
+                return res.status(403).send({massage: 'forbidden access'})
+            }
 
             try {
                 const myFoods = await foodCollection.find({ "donator.email": userEmail }).toArray();
@@ -149,8 +204,13 @@ async function run() {
         });
 
         // GET Route: Fetch My Requests
-        app.get('/my-requests', async (req, res) => {
+        app.get('/my-requests', verifyToken, async (req, res) => {
             const userEmail = req.query.email; // Get email from query parameters
+
+             // token email & query email 
+             if(req.user.email !== req.query.email) {
+                return res.status(403).send({massage: 'forbidden access'})
+            }
 
             try {
                 const myRequests = await myRequestsCollection.find({ userEmail }).toArray();
