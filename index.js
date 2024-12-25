@@ -14,8 +14,13 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:5175'], 
-    credentials: true 
+    origin: [
+        'http://localhost:5173',
+        'https://food-bd-31846.web.app',
+        'https://food-bd-31846.firebaseapp.com',
+
+        ],
+    credentials: true
 }));
 app.use(express.json());
 app.use(cookieParser());
@@ -23,21 +28,21 @@ app.use(cookieParser());
 const verifyToken = (req, res, next) => {
     const token = req.cookies?.token;
 
-    if(!token) {
-        return res.status(401).send({massage: 'unauthorized access'});
+    if (!token) {
+        return res.status(401).send({ massage: 'unauthorized access' });
     }
 
     // verify the token
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if(err) {
-            return res.status(401).send({massage: 'unauthorized access'});
+        if (err) {
+            return res.status(401).send({ massage: 'unauthorized access' });
         }
         req.user = decoded;
         next();
     })
 
 
-   
+
 
 }
 
@@ -67,20 +72,22 @@ async function run() {
 
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '5h'} );
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5h' });
             res.cookie('token', token, {
-                httpOnly: true, 
-                secure: false
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
             })
-            .send({success: true})
+                .send({ success: true })
         })
 
         app.post('/logout', (req, res) => {
             res.clearCookie('token', {
-                httpOnly: true, 
-                secure: false
-            } )
-            .send({success: true})
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+            })
+                .send({ success: true })
         })
 
 
@@ -111,10 +118,10 @@ async function run() {
 
         // GET Route: Fetch Foods Donated by Logged-In User
         app.get('/my-foods', verifyToken, async (req, res) => {
-            const userEmail = req.query.email; // Get the logged-in user's email from query params
+            const userEmail = req.query.email; 
             // token email & query email 
-            if(req.user.email !== req.query.email) {
-                return res.status(403).send({massage: 'forbidden access'})
+            if (req.user.email !== req.query.email) {
+                return res.status(403).send({ massage: 'forbidden access' })
             }
 
             try {
@@ -172,13 +179,14 @@ async function run() {
             }
         });
 
+
         // GET Route: Fetch Featured Foods
         app.get('/featured-foods', async (req, res) => {
             try {
                 const featuredFoods = await foodCollection
                     .find({ status: "Available" })
-                    .sort({ quantity: -1 }) // Sort by quantity in descending order
-                    .limit(6) // Limit to top 6 items
+                    .sort({ quantity: -1 }) 
+                    .limit(6) 
                     .toArray();
                 res.status(200).send(featuredFoods);
             } catch (error) {
@@ -207,9 +215,9 @@ async function run() {
         app.get('/my-requests', verifyToken, async (req, res) => {
             const userEmail = req.query.email; // Get email from query parameters
 
-             // token email & query email 
-             if(req.user.email !== req.query.email) {
-                return res.status(403).send({massage: 'forbidden access'})
+            // token email & query email 
+            if (req.user.email !== req.query.email) {
+                return res.status(403).send({ massage: 'forbidden access' })
             }
 
             try {
