@@ -147,7 +147,7 @@ async function run() {
         });
 
 
-        // PATCH Route: Update Food Information
+        // PATCH Route: Update Food Information details
         app.patch('/foods/:id', async (req, res) => {
             const { id } = req.params;
             const updatedData = req.body;
