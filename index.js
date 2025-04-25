@@ -10,16 +10,13 @@ require('dotenv').config();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
-
-
 // Middleware
 app.use(cors({
     origin: [
         'http://localhost:5173',
         'https://food-bd-31846.web.app',
         'https://food-bd-31846.firebaseapp.com',
-
-        ],
+    ],
     credentials: true
 }));
 app.use(express.json());
@@ -29,23 +26,17 @@ const verifyToken = (req, res, next) => {
     const token = req.cookies?.token;
 
     if (!token) {
-        return res.status(401).send({ massage: 'unauthorized access' });
+        return res.status(401).send({ message: 'unauthorized access' });
     }
 
-    // verify the token
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-            return res.status(401).send({ massage: 'unauthorized access' });
+            return res.status(401).send({ message: 'unauthorized access' });
         }
         req.user = decoded;
         next();
-    })
-
-
-
-
+    });
 }
-
 
 // MongoDB Connection
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5gtpi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -67,9 +58,9 @@ async function run() {
         const database = client.db("foodDB");
         const foodCollection = database.collection("foods");
         const myRequestsCollection = database.collection("myRequests");
+        const newsletterSubscribersCollection = database.collection("newsletterSubscribers");
 
-        // auth releted apis
-
+        // Auth related APIs
         app.post('/jwt', (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5h' });
@@ -78,8 +69,8 @@ async function run() {
                 secure: process.env.NODE_ENV === "production",
                 sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
             })
-                .send({ success: true })
-        })
+                .send({ success: true });
+        });
 
         app.post('/logout', (req, res) => {
             res.clearCookie('token', {
@@ -87,10 +78,36 @@ async function run() {
                 secure: process.env.NODE_ENV === "production",
                 sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
             })
-                .send({ success: true })
-        })
+                .send({ success: true });
+        });
 
+        // Newsletter Subscription Endpoint
+        app.post('/newsletter-subscribe', async (req, res) => {
+            const { email } = req.body;
 
+            if (!email) {
+                return res.status(400).send({ success: false, message: "Email is required" });
+            }
+
+            try {
+                // Check if email already exists
+                const existingSubscriber = await newsletterSubscribersCollection.findOne({ email });
+                if (existingSubscriber) {
+                    return res.status(409).send({ success: false, message: "Email already subscribed" });
+                }
+
+                // Add new subscriber
+                const subscriber = {
+                    email,
+                    subscribedAt: new Date(),
+                };
+                const result = await newsletterSubscribersCollection.insertOne(subscriber);
+                res.status(201).send({ success: true, message: "Subscribed successfully", data: result });
+            } catch (error) {
+                console.error("Error subscribing to newsletter:", error);
+                res.status(500).send({ success: false, message: "Failed to subscribe" });
+            }
+        });
 
         // GET Route: Fetch Available Foods
         app.get('/available-foods', async (req, res) => {
@@ -118,10 +135,9 @@ async function run() {
 
         // GET Route: Fetch Foods Donated by Logged-In User
         app.get('/my-foods', verifyToken, async (req, res) => {
-            const userEmail = req.query.email; 
-            // token email & query email 
+            const userEmail = req.query.email;
             if (req.user.email !== req.query.email) {
-                return res.status(403).send({ massage: 'forbidden access' })
+                return res.status(403).send({ message: 'forbidden access' });
             }
 
             try {
@@ -146,7 +162,6 @@ async function run() {
             }
         });
 
-
         // PATCH Route: Update Food Information details
         app.patch('/foods/:id', async (req, res) => {
             const { id } = req.params;
@@ -164,9 +179,6 @@ async function run() {
             }
         });
 
-
-
-
         // POST Route: Add Food
         app.post('/add-food', async (req, res) => {
             const foodData = req.body;
@@ -179,14 +191,13 @@ async function run() {
             }
         });
 
-
         // GET Route: Fetch Featured Foods
         app.get('/featured-foods', async (req, res) => {
             try {
                 const featuredFoods = await foodCollection
                     .find({ status: "Available" })
-                    .sort({ quantity: -1 }) 
-                    .limit(6) 
+                    .sort({ quantity: -1 })
+                    .limit(6)
                     .toArray();
                 res.status(200).send(featuredFoods);
             } catch (error) {
@@ -195,29 +206,11 @@ async function run() {
             }
         });
 
-        // PATCH Route: Update Food Status to "Requested"
-        app.patch('/foods/:id', async (req, res) => {
-            const { id } = req.params;
-            const { status } = req.body;
-            try {
-                const result = await foodCollection.updateOne(
-                    { _id: new ObjectId(id) },
-                    { $set: { status } }
-                );
-                res.send({ success: true, message: "Food status updated successfully", data: result });
-            } catch (error) {
-                console.error("Error updating food status:", error);
-                res.status(500).send({ success: false, message: "Failed to update food status" });
-            }
-        });
-
         // GET Route: Fetch My Requests
         app.get('/my-requests', verifyToken, async (req, res) => {
-            const userEmail = req.query.email; // Get email from query parameters
-
-            // token email & query email 
+            const userEmail = req.query.email;
             if (req.user.email !== req.query.email) {
-                return res.status(403).send({ massage: 'forbidden access' })
+                return res.status(403).send({ message: 'forbidden access' });
             }
 
             try {
@@ -228,9 +221,6 @@ async function run() {
                 res.status(500).send({ success: false, message: "Failed to fetch my requests" });
             }
         });
-
-
-
 
         // POST Route: Add to My Requests
         app.post('/my-requests', async (req, res) => {
@@ -246,10 +236,14 @@ async function run() {
 
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
+        throw error; // Ensure the server doesn't start if MongoDB connection fails
     }
 }
 
-run().catch(console.dir);
+run().catch(error => {
+    console.error("Server failed to start:", error);
+    process.exit(1); // Exit the process if the server fails to start
+});
 
 // Root Route
 app.get('/', (req, res) => {
@@ -260,10 +254,6 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
     console.log(`Server successfully running on port: ${port}`);
 });
-
-
-
-
 
 
 
